@@ -1,6 +1,7 @@
 codebook.json
-codebook.py
+codeBook.py
 main.py
 test.py
 .vscode
 .venv
+.gitignore
