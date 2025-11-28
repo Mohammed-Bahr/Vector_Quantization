@@ -12,9 +12,172 @@ import sys
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
-# =========================================================
-# CODEBOOK CLASS (Copied from GUI_VQ_Full.py)
-# =========================================================
+class MainMenu:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Vector Quantization System - Main Menu")
+        self.root.state("zoomed")  # Fullscreen / maximize
+        
+        # Blue/Violet color palette (same as main app)
+        self.bg_color = "#1e2a4a"  # Dark blue background
+        self.primary_color = "#8a2be2"  # Blue violet
+        self.secondary_color = "#4a6fc7"  # Royal blue
+        self.accent_color = "#ff6b6b"  # Coral accent
+        self.text_color = "#e6e6ff"  # Light lavender text
+        self.button_color = "#6a5acd"  # Slate blue for buttons
+        
+        self.root.configure(bg=self.bg_color)
+        
+        # Header
+        # header_frame = tk.Frame(root, bg=self.primary_color, height=80)
+        # header_frame.pack(fill="x", pady=(0, 20))
+        # header_frame.pack_propagate(False)
+        
+        # title_label = tk.Label(
+        #     header_frame, 
+        #     text="Vector Quantization System", 
+        #     font=("Arial", 24, "bold"), 
+        #     fg="white", 
+        #     bg=self.primary_color,
+        #     pady=20
+        # )
+        # title_label.pack()
+        
+        # Main content frame
+        content_frame = tk.Frame(root, bg=self.bg_color)
+        content_frame.pack(expand=True, fill="both", pady=40)
+        
+        # Welcome message
+        welcome_label = tk.Label(
+            content_frame,
+            text="Vector Quantization System",
+            font=("Arial", 32, "bold"),
+            bg=self.bg_color,
+            fg=self.text_color,
+            pady=100
+        )
+        welcome_label.pack()
+        
+        # Learn More button
+        learn_more_frame = tk.Frame(content_frame, bg=self.bg_color)
+        learn_more_frame.pack(pady=10)
+        
+        RoundedButton(
+            learn_more_frame,
+            text="Learn More About VQ",
+            command=self.show_description,
+            bg=self.secondary_color,
+            fg="white",
+            font=("Arial", 12, "bold"),
+            width=180,
+            height=40,
+            radius=20
+        ).pack()
+        
+        # Go button
+        button_frame = tk.Frame(content_frame, bg=self.bg_color)
+        button_frame.pack(pady=40)
+        
+        RoundedButton(
+            button_frame,
+            text="Start!",
+            command=self.launch_app,
+            bg=self.button_color,
+            fg="white",
+            font=("Arial", 14, "bold"),
+            width=200,
+            height=50,
+            radius=25
+        ).pack()
+        
+        # Credits frame
+        credits_frame = tk.Frame(root, bg=self.bg_color)
+        credits_frame.pack(side="bottom", fill="x", pady=20)
+        
+        credits_label = tk.Label(
+            credits_frame,
+            text="Created by: UnlimITed : Fatma Nazeih, Mohammed Ahmed, Mostafa Sobhy, Malk Ahmed",
+            font=("Arial", 10),
+            bg=self.bg_color,
+            fg=self.text_color
+        )
+        credits_label.pack()
+    
+    def show_desc(self, title, message):
+        desc_popup = Toplevel(self.root)
+        desc_popup.title(title)
+        desc_popup.geometry("500x430")
+        desc_popup.configure(bg=self.bg_color)
+        desc_popup.resizable(False, False)
+        
+        # Center the popup
+        desc_popup.transient(self.root)
+        desc_popup.grab_set()
+        
+        # Position in center of parent window
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (500 // 2)
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (300 // 2)
+        desc_popup.geometry(f"+{x}+{y}")
+
+        # Error icon and message
+        tk.Label(
+            desc_popup, 
+            text="🤔💭",  
+            font=("Arial", 24),
+            bg=self.bg_color,
+            fg=self.accent_color
+        ).pack(pady=(20, 10))
+
+        tk.Label(
+            desc_popup, 
+            text=message, 
+            font=("Arial", 12),
+            bg=self.bg_color,
+            fg=self.text_color,
+            wraplength=350
+        ).pack(pady=(0, 20))
+
+        # OK button 
+        RoundedButton(
+            desc_popup, 
+            text="OK", 
+            command=desc_popup.destroy,
+            bg=self.accent_color,
+            fg="white",
+            font=("Arial", 10, "bold"),
+            width=100,
+            height=35
+        ).pack(pady=10)
+    
+    def show_description(self):
+        """Show description in a message box"""
+        desc_text = """This application implements Vector Quantization for image compression.
+        
+Vector Quantization is a lossy compression technique that works by dividing an image into blocks and representing each block with a codebook entry.
+
+Key Features:
+• Image compression with customizable block sizes
+• Codebook generation using LBG algorithm
+• Image decompression from compressed files
+• Visual comparison of original and reconstructed images"""
+        
+        self.show_desc("About Vector Quantization", desc_text)
+    
+    def launch_app(self):
+        # Hide main menu
+        self.root.withdraw()
+        
+        # Create and show main application window
+        app_window = tk.Toplevel(self.root)
+        app = VQ_GUI(app_window)
+        
+        # # When main app closes, show main menu again or exit
+        # def on_app_close():
+        #     self.root.deiconify()
+        #     app_window.destroy()
+        
+        # app_window.protocol("WM_DELETE_WINDOW", on_app_close)
+
 class Codebook:
     def __init__(self, path, block_h, block_w):
         self.path = path
@@ -262,6 +425,24 @@ class RoundedFrame(tk.Frame):
                      0, 0]
             self.canvas.create_polygon(points, smooth=True, fill=self.bg, outline="")
 
+    def draw_button(self, hover=False, text=None):
+        self.delete("all")
+        color = self.bg
+        if hover:
+            # Lighten color on hover
+            r, g, b = int(self.bg[1:3], 16), int(self.bg[3:5], 16), int(self.bg[5:7], 16)
+            r = min(255, int(r * 1.2))
+            g = min(255, int(g * 1.2))
+            b = min(255, int(b * 1.2))
+            color = f"#{r:02x}{g:02x}{b:02x}"
+        
+        # Draw rounded rectangle
+        self.create_rounded_rectangle(0, 0, self.width, self.height, radius=self.radius, fill=color, outline="")
+        
+        # Use provided text or default text
+        display_text = text if text is not None else self.text
+        self.create_text(self.width//2, self.height//2, text=display_text, fill=self.fg, font=self.font)
+
 class VQ_GUI:
     def __init__(self, root):
         self.root = root
@@ -294,19 +475,19 @@ class VQ_GUI:
         sys.stderr = self
         
         # Title
-        header_frame = tk.Frame(root, bg=self.primary_color, height=60)
-        header_frame.pack(fill="x", pady=(0, 10))
-        header_frame.pack_propagate(False)
+        # header_frame = tk.Frame(root, bg=self.primary_color, height=60)
+        # header_frame.pack(fill="x", pady=(0, 10))
+        # header_frame.pack_propagate(False)
         
-        title_label = tk.Label(
-            header_frame, 
-            text="Vector Quantization System", 
-            font=("Arial", 20, "bold"), 
-            fg="white", 
-            bg=self.primary_color,
-            pady=20
-        )
-        title_label.pack()
+        # title_label = tk.Label(
+        #     header_frame, 
+        #     text="Vector Quantization System", 
+        #     font=("Arial", 20, "bold"), 
+        #     fg="white", 
+        #     bg=self.primary_color,
+        #     pady=20
+        # )
+        # #title_label.pack()
 
         # frame for file selection and buttons
         top_frame = tk.Frame(root, bg=self.bg_color, pady=15)
@@ -376,7 +557,7 @@ class VQ_GUI:
 
         RoundedButton(
             button_frame, 
-            text="Show Codebook / Binary", 
+            text="Show Program Output", 
             command=self.show_files,
             bg=self.button_color,
             fg="white",
@@ -537,6 +718,96 @@ class VQ_GUI:
             height=35
         ).pack(pady=10)
 
+    def show_styled_success(self, title, message):
+        success_popup = Toplevel(self.root)
+        success_popup.title(title)
+        success_popup.geometry("400x250")
+        success_popup.configure(bg=self.bg_color)
+        success_popup.resizable(False, False)
+        
+        # Center the popup
+        success_popup.transient(self.root)
+        success_popup.grab_set()
+        
+        # Position in center of parent window
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (400 // 2)
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (150 // 2)
+        success_popup.geometry(f"+{x}+{y}")
+
+        tk.Label(
+            success_popup, 
+            text="✔",  
+            font=("Arial", 24),
+            bg=self.bg_color,
+            fg=self.accent_color
+        ).pack(pady=(20, 10))
+
+        tk.Label(
+            success_popup, 
+            text=message, 
+            font=("Arial", 12),
+            bg=self.bg_color,
+            fg=self.text_color,
+            wraplength=350
+        ).pack(pady=(0, 20))
+
+        # OK button 
+        RoundedButton(
+            success_popup, 
+            text="OK", 
+            command=success_popup.destroy,
+            bg=self.accent_color,
+            fg="white",
+            font=("Arial", 10, "bold"),
+            width=100,
+            height=35
+        ).pack(pady=10)
+
+    def show_styled_success_comp(self, title, message):
+        success_popup = Toplevel(self.root)
+        success_popup.title(title)
+        success_popup.geometry("400x200")
+        success_popup.configure(bg=self.bg_color)
+        success_popup.resizable(False, False)
+        
+        # Center the popup
+        success_popup.transient(self.root)
+        success_popup.grab_set()
+        
+        # Position in center of parent window
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - (400 // 2)
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - (150 // 2)
+        success_popup.geometry(f"+{x}+{y}")
+
+        tk.Label(
+            success_popup, 
+            text="✔",  
+            font=("Arial", 24),
+            bg=self.bg_color,
+            fg=self.accent_color
+        ).pack(pady=(20, 10))
+
+        tk.Label(
+            success_popup, 
+            text=message, 
+            font=("Arial", 12),
+            bg=self.bg_color,
+            fg=self.text_color,
+            wraplength=350
+        ).pack(pady=(0, 20))
+
+        # OK button 
+        RoundedButton(
+            success_popup, 
+            text="OK", 
+            command=success_popup.destroy,
+            bg=self.accent_color,
+            fg="white",
+            font=("Arial", 10, "bold"),
+            width=100,
+            height=35
+        ).pack(pady=10)
+
     def show_original_image(self, path):
         img = Image.open(path)
         
@@ -689,8 +960,10 @@ class VQ_GUI:
                 bh = int(bh_entry.get())
                 bw = int(bw_entry.get())
                 k = int(k_entry.get())
+                if bh <= 0 or bw <= 0 or k <= 0:
+                    raise ValueError
             except ValueError:
-                messagebox.showerror("Error", "Please enter valid integers for parameters.")
+                self.show_styled_error("Error", "Please enter valid integers for parameters.")
                 return
             
             popup.destroy()
@@ -728,7 +1001,7 @@ class VQ_GUI:
 
     def run_compression(self, bh, bw, k):
         if not self.current_image_path:
-            messagebox.showerror("Error", "No image selected.")
+            self.show_styled_error("Error", "No image selected.")
             return
 
         print("\n--- Starting Compression Process ---")
@@ -737,12 +1010,14 @@ class VQ_GUI:
             cb.generate_codebook(k)
             cb.compress()
             print("--- Compression Completed Successfully ---")
-            messagebox.showinfo("Success", "Compression completed! Files generated.")
+            self.show_styled_success_comp("Success", "Compression completed! Files generated.")
+            #messagebox.showinfo("Success", "Compression completed! Files generated.")
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)
-            messagebox.showerror("Error", f"An error occurred:\n{str(e)}")
+            self.show_styled_error("Error", f"An error occurred:\n{str(e)}")
+            #messagebox.showerror("Error", f"An error occurred:\n{str(e)}")
 
-    # NEW: Decompress popup window (matching design)
+    # Decompress popup window (matching design)
     def open_decompress_window(self):
         if not self.current_image_path:
             self.show_styled_error("Error", "Please select an original image first.")
@@ -836,7 +1111,8 @@ class VQ_GUI:
         codebook_path = os.path.join(script_dir, codebook_file)
         
         if not os.path.exists(labels_path) or not os.path.exists(codebook_path):
-            messagebox.showerror("Error", f"Files not found:\n{labels_file}\n{codebook_file}")
+            self.show_styled_error("Error", f"Files not found:\n{labels_file}\n{codebook_file}")
+            #messagebox.showerror("Error", f"Files not found:\n{labels_file}\n{codebook_file}")
             return
 
         print("\n--- Starting Decompression Process ---")
@@ -849,11 +1125,13 @@ class VQ_GUI:
             
             # Update UI in main thread
             self.root.after(0, lambda: self.show_decompressed_image(output_path))
-            self.root.after(0, lambda: messagebox.showinfo("Success", f"Decompression completed.\nSaved to: {output_path}"))
+            self.root.after(0, lambda: self.show_styled_success("Success", f"Decompression completed.\nSaved to: {output_path}"))
+            #self.root.after(0, lambda: messagebox.showinfo("Success", f"Decompression completed.\nSaved to: {output_path}"))
             
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)
-            self.root.after(0, lambda: messagebox.showerror("Error", f"An error occurred:\n{str(e)}"))
+            self.root.after(0, lambda: self.show_styled_error("Error", f"An error occurred:\n{str(e)}"))
+            #self.root.after(0, lambda: messagebox.showerror("Error", f"An error occurred:\n{str(e)}"))
 
     # show generated files popup (Now shows Command Output)
     def show_files(self):
@@ -872,7 +1150,7 @@ class VQ_GUI:
 
         tk.Label(
             popup, 
-            text="System Logs", 
+            text="Command Output", 
             font=("Arial", 14, "bold"),
             bg=self.bg_color,
             fg=self.text_color
@@ -941,5 +1219,12 @@ class VQ_GUI:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = VQ_GUI(root)
+    
+    menu = MainMenu(root)
+    
+    def on_closing():
+        root.quit()
+        root.destroy()
+    
+    root.protocol("WM_DELETE_WINDOW", on_closing)
     root.mainloop()
