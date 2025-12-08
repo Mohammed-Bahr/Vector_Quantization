@@ -6,30 +6,32 @@ import os
 import math
 import struct
 
-script_dir = os.path.dirname(os.path.abspath(__file__))  # script folder
+script_dir = os.path.dirname(os.path.abspath(__file__))  # script working directory
 
-# =========================================================
-# CODEBOOK CLASS (GRAYSCALE + COLOR SUPPORT)
-# =========================================================
 class Codebook:
     def __init__(self, path, block_h, block_w):
         self.path = path
         self.block_h = block_h
         self.block_w = block_w
 
-        img = Image.open(self.path).convert("RGB")
+        img = Image.open(self.path).convert("RGB") # opens image as a RGB array
         self.img_arr = np.array(img)
         self.orig_h, self.orig_w, self.channels = self.img_arr.shape
 
+
+        # pads the image so that its dimensions are multiples of block size
         pad_h = (self.block_h - (self.orig_h % self.block_h)) % self.block_h
         pad_w = (self.block_w - (self.orig_w % self.block_w)) % self.block_w
 
+
+        # pads the image using edge pixels to avoid adding new colors to the image
         self.img_padded = np.pad(
             self.img_arr,
             ((0, pad_h), (0, pad_w), (0, 0)),
-            mode="constant",
-            constant_values=0
+            mode="edge",
+            #constant_values=0
         )
+
 
         self.padded_h, self.padded_w, _ = self.img_padded.shape
         self.blocks = self.image_to_blocks()
@@ -45,7 +47,7 @@ class Codebook:
         self.labels_bin = os.path.join(script_dir, f"{self.base_name}_labels.bin")
         self.reconstructed_path = os.path.join(script_dir, f"{self.base_name}_reconstructed.png")
 
-    # -----------------------------------------------------
+    # creates blocks from the padded image
     def image_to_blocks(self):
         h, w, c = self.img_padded.shape
         n_rows = h // self.block_h
@@ -54,7 +56,7 @@ class Codebook:
         blocks = blocks.swapaxes(1, 2)
         return blocks.reshape(-1, self.block_h * self.block_w * c)
 
-    # -----------------------------------------------------
+    
     def generate_codebook(self, k, epsilon=0.01, threshold=0.001, max_iterations=100):
         if k > len(self.blocks):
             raise ValueError(
@@ -62,21 +64,21 @@ class Codebook:
             )
 
         print(f"\n=== Starting LBG for k={k} ===")
-        centroid = np.mean(self.blocks, axis=0)
-        self.codebook = np.array([centroid])
+        centroid = np.mean(self.blocks, axis=0) # gets the mean of all blocks as the initial centroid
+        self.codebook = np.array([centroid]) # initializes the codebook with the centroid
 
-        while len(self.codebook) < k:
-            code_plus = self.codebook * (1 + epsilon)
-            code_minus = self.codebook * (1 - epsilon)
-            self.codebook = np.vstack((code_plus, code_minus))
+        while len(self.codebook) < k: # while the codebook hasn't reached the desired level of quantization
+            code_plus = self.codebook * (1 + epsilon) # right branch (adds a small value for percision)
+            code_minus = self.codebook * (1 - epsilon) # left branch (subtracts a small value for percision)
+            self.codebook = np.vstack((code_plus, code_minus)) # adds the new branches to the codebook underneath the old ones
 
-            prev_distortion = float('inf')
+            prev_distortion = float('inf') # association level is first set to infinity
             for i in range(max_iterations):
-                distances = cdist(self.blocks, self.codebook, metric='cityblock')
+                distances = cdist(self.blocks, self.codebook, metric='cityblock') # calculates the Manhattan distance between each block and each codevector
                 labels = np.argmin(distances, axis=1)
                 new_codebook = np.zeros_like(self.codebook)
 
-                for idx in range(len(self.codebook)):
+                for idx in range(len(self.codebook)): # assigns each block to the nearest codevector
                     members = self.blocks[labels == idx]
                     if len(members) > 0:
                         new_codebook[idx] = np.mean(members, axis=0)
@@ -84,10 +86,10 @@ class Codebook:
                         new_codebook[idx] = self.codebook[idx]
 
                 self.codebook = new_codebook
-                min_distances = distances[np.arange(len(distances)), labels]
+                min_distances = distances[np.arange(len(distances)), labels] 
                 distortion = np.mean(min_distances)
 
-                if prev_distortion != float('inf'):
+                if prev_distortion != float('inf'): # checks for no more movement in association level 
                     change = abs(prev_distortion - distortion) / prev_distortion
                     if change < threshold:
                         print(f"Converged at iter {i}, distortion={distortion:.3f}")
@@ -114,7 +116,7 @@ class Codebook:
 
         return final
 
-    # -----------------------------------------------------
+    # assigns each block to the nearest codevector and saves the labels
     def compress(self):
         if self.codebook is None:
             raise ValueError("No codebook yet.")
@@ -147,8 +149,7 @@ class Codebook:
 
         return labels_grid
 
-    # -----------------------------------------------------
-    @staticmethod
+
     def decompress(labels_path, codebook_path, output_path):
         labels = np.array(json.load(open(labels_path)))
         codebook = np.array(json.load(open(codebook_path)))
@@ -186,9 +187,7 @@ def validate_image_path(path, allowed_exts=None):
 
     return path
 
-# =========================================================
-# MAIN MENU
-# =========================================================
+
 if __name__ == "__main__":
     print("=+= Vector Quantization System =+=")
 
@@ -208,21 +207,41 @@ if __name__ == "__main__":
                 print("Error:", e)
                 continue
 
-            bh = int(input("Block height: "))
-            bw = int(input("Block width: "))
-            k = int(input("Levels of desired Quantization (size of codebook): "))
+            try:
+                bh = int(input("Block height: "))
+                bw = int(input("Block width: "))
 
-            cb = Codebook(path, bh, bw)
-            cb.generate_codebook(k)
-            cb.compress()
+                if bh <= 0 or bw <= 0:
+                    raise ValueError("Block height and width must be positive integers.")
+
+                # Load image first to validate against its size
+                cb_temp = Codebook(path, 1, 1)  # temporary object just to get image shape
+                img_h, img_w = cb_temp.orig_h, cb_temp.orig_w
+
+                if bh > img_h or bw > img_w:
+                    raise ValueError(
+                        f"Block size {bh}×{bw} exceeds image size {img_h}×{img_w}."
+                    )
+
+                # Actual initialization with validated block size
+                cb = Codebook(path, bh, bw)
+
+                k = int(input("Levels of desired Quantization (size of codebook): "))
+
+                cb.generate_codebook(k)
+                cb.compress()
+
+            except ValueError as e:
+                print("Invalid input:", e)
+                continue
 
         elif choice == "2":
             path = input("Enter original image path for output naming: ")
             try:
                 path = validate_image_path(path)
             except Exception as e:
-                print("Error:", e)
-                continue
+                    print("Error:", e)
+                    continue
             base_name = os.path.splitext(os.path.basename(path))[0]
             labels_path = os.path.join(script_dir, f"{base_name}_labels.json")
             codebook_path = os.path.join(script_dir, f"{base_name}_codebook.json")
