@@ -3,4 +3,5 @@ codebook.json
 .venv
 .gitignore
 codebook.txt
-
+right.txt
+right.json
