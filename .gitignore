@@ -2,5 +2,5 @@ codebook.json
 .vscode
 .venv
 .gitignore
+codebook.txt
 
-uniformQuantization
