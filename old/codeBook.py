@@ -44,7 +44,6 @@ class CodeBook:
 
 
     def compute_average_block(self):
-        """ حساب متوسط كل القيم في كل بلوك """
         total_blocks = len(self.blocks)
 
         h = self.block_h
@@ -66,7 +65,6 @@ class CodeBook:
 
 
     def block_difference(self, block1, block2):
-        """ الفرق المطلق بين قيم كل مكان في البلوك """
         total = 0
         h = len(block1)
         w = len(block1[0])
@@ -97,38 +95,19 @@ class CodeBook:
     
 
     def generate_codebook(self, k, json_path="codebook.json", epsilon=0.01, threshold=0.001, max_iterations=100):
-        """
-        توليد كودبوك باستخدام خوارزمية LBG الكاملة
-        
-        Parameters:
-        -----------
-        k : int
-            حجم الكودبوك المطلوب (يفضل أن يكون قوة 2)
-        json_path : str
-            مسار حفظ ملف JSON
-        epsilon : float
-            قيمة الاضطراب لتقسيم الكودووردز
-        threshold : float
-            حد التوقف عند التقارب
-        max_iterations : int
-            أقصى عدد تكرارات لكل مرحلة
-        """
+ 
         
         if k > len(self.blocks):
             raise ValueError("k is larger than number of blocks!")
         
-        # الخطوة 1: البداية بكودوورد واحد (المتوسط العام)
         self.codebook = [self.centroid]
         current_size = 1
         
         print(f"Starting LBG algorithm to generate codebook of size {k}...")
         
-        # الخطوة 2: التكرار حتى الوصول للحجم المطلوب
         while current_size < k:
-            # تقسيم كل كودوورد إلى اثنين
             new_codebook = []
             for codeword in self.codebook:
-                # إضافة اضطراب موجب
                 codeword_plus = []
                 for i in range(len(codeword)):
                     row = []
