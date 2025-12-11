@@ -28,21 +28,6 @@ class MainMenu:
         
         self.root.configure(bg=self.bg_color)
         
-        # Header
-        # header_frame = tk.Frame(root, bg=self.primary_color, height=80)
-        # header_frame.pack(fill="x", pady=(0, 20))
-        # header_frame.pack_propagate(False)
-        
-        # title_label = tk.Label(
-        #     header_frame, 
-        #     text="Vector Quantization System", 
-        #     font=("Arial", 24, "bold"), 
-        #     fg="white", 
-        #     bg=self.primary_color,
-        #     pady=20
-        # )
-        # title_label.pack()
-        
         # Main content frame
         content_frame = tk.Frame(root, bg=self.bg_color)
         content_frame.pack(expand=True, fill="both", pady=40)
@@ -473,21 +458,6 @@ class VQ_GUI:
         self.log_widget = None
         sys.stdout = self
         sys.stderr = self
-        
-        # Title
-        # header_frame = tk.Frame(root, bg=self.primary_color, height=60)
-        # header_frame.pack(fill="x", pady=(0, 10))
-        # header_frame.pack_propagate(False)
-        
-        # title_label = tk.Label(
-        #     header_frame, 
-        #     text="Vector Quantization System", 
-        #     font=("Arial", 20, "bold"), 
-        #     fg="white", 
-        #     bg=self.primary_color,
-        #     pady=20
-        # )
-        # #title_label.pack()
 
         # frame for file selection and buttons
         top_frame = tk.Frame(root, bg=self.bg_color, pady=15)
