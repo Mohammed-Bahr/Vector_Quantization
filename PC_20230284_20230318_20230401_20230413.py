@@ -89,6 +89,7 @@ def find_quant_index(err, codebook):
 
 def compress_rgb(original_img, codebook_json):
     h, w, _ = original_img.shape
+    # creates empty arrays that we will use to create he images later
     reconstructed = np.zeros_like(original_img, dtype=np.int32)
     quant_indices = np.zeros((h, w, 3), dtype=np.int32)
 
@@ -100,20 +101,23 @@ def compress_rgb(original_img, codebook_json):
         codebooks = json.load(f)
     channels = ['R','G','B']
 
+    # for each pixel in the image we predict is value for each channnel
     for i in range(h):
         for j in range(w):
             for c_idx, ch in enumerate(channels):
-                codebook = codebooks[ch]
-                pred = loco_predict(reconstructed, i, j, c_idx)
-                err = original_img[i, j, c_idx] - pred
-                q_index = find_quant_index(err, codebook)
-                dq_err = codebook[q_index]['midpoint']
-                recon_pixel = pred + dq_err
-                recon_pixel = max(0, min(255, int(round(recon_pixel))))
+
+                codebook = codebooks[ch] # get the codebook for current channel
+                pred = loco_predict(reconstructed, i, j, c_idx) # u'(n) = u^(n-1)
+                err = original_img[i, j, c_idx] - pred  # e(n) = u(n) - u'(n)
+                q_index = find_quant_index(err, codebook) 
+                dq_err = codebook[q_index]['midpoint'] 
+                recon_pixel = pred + dq_err # u ^(n) = u'(n) + e^(n)
+                recon_pixel = max(0, min(255, int(round(recon_pixel)))) # valid range: 0 ≤ pixel ≤ 255
+
+
+
                 reconstructed[i, j, c_idx] = recon_pixel
                 quant_indices[i, j, c_idx] = q_index
-
-               
                 predicted[i,j,c_idx] = pred
                 error[i,j,c_idx] = err
                 q_image[i,j,c_idx] = dq_err
@@ -125,11 +129,11 @@ def save_quantized_bin(basename, quant_indices):
     bin_path = os.path.join(script_dir, f"{basename}_quant.bin")
 
     with open(bin_path, "wb") as f:
-        # Write header
+        # image dimensions
         f.write(np.int32(h).tobytes())
         f.write(np.int32(w).tobytes())
         
-        # Flatten indices and write as uint8
+        # Flatten array and save as int then as binary 
         flat = quant_indices.astype(np.uint8).flatten()
         f.write(flat.tobytes())
 
@@ -142,17 +146,17 @@ def save_images(basename, predicted, error, quant_indices, q_image, reconstructe
         np.clip(predicted, 0, 255).astype(np.uint8)
     ).save(os.path.join(script_dir, f"{basename}_predicted.png"))
 
-    # Original prediction error (shift +128)
+    # error (to make it possible to visualize the error and since it ranges from -128 to 127 we used a shift of +128)
     Image.fromarray(
         np.clip(error + 128, 0, 255).astype(np.uint8)
     ).save(os.path.join(script_dir, f"{basename}_error.png"))
 
-    # Quantized error indices (shifted for visualization)
+    # Quantized error indices (they are very small values so we have to shift them to be able to visualize them)
     Image.fromarray(
         np.clip(quant_indices + 128, 0, 255).astype(np.uint8)
     ).save(os.path.join(script_dir, f"{basename}_quantized_error.png"))
 
-    # Dequantized error values (also shifted for visualization)
+    # Dequantized error values (also shifted for visualization same as quantized error)
     Image.fromarray(
         np.clip(q_image + 128, 0, 255).astype(np.uint8)
     ).save(os.path.join(script_dir, f"{basename}_dequantized_error.png"))
@@ -163,70 +167,100 @@ def save_images(basename, predicted, error, quant_indices, q_image, reconstructe
     ).save(os.path.join(script_dir, f"{basename}_reconstructed.png"))
 
     print(
-        f"All images saved:\n"
+        f"All images from COMPRESSION saved:\n"
         f" - {basename}_predicted.png\n"
         f" - {basename}_error.png\n"
         f" - {basename}_quantized_error.png\n"
         f" - {basename}_dequantized_error.png\n"
         f" - {basename}_reconstructed.png"
     )
+
+def save_images_decompress(basename, quant_indices, q_image, reconstructed):
+    # Quantized error indices (they are very small values so we have to shift them to be able to visualize them)
+    Image.fromarray(
+        np.clip(quant_indices + 128, 0, 255).astype(np.uint8)
+    ).save(os.path.join(script_dir, f"{basename}_Decompressed_quantized_error.png"))
+
+    # Dequantized error values (also shifted for visualization same as quantized error)
+    Image.fromarray(
+        np.clip(q_image + 128, 0, 255).astype(np.uint8)
+    ).save(os.path.join(script_dir, f"{basename}_Decompressed_dequantized_error.png"))
+
+    # Reconstructed image
+    Image.fromarray(
+        np.clip(reconstructed, 0, 255).astype(np.uint8)
+    ).save(os.path.join(script_dir, f"{basename}_Decompressed_reconstructed.png"))
+
+    print(
+        f"All images from DECOMPRESSION saved:\n"
+        f" - {basename}_Decompressed_quantized_error.png\n"
+        f" - {basename}_Decompressed_dequantized_error.png\n"
+        f" - {basename}_Decompressed_reconstructed.png"
+    )
     
 def decompress_rgb(basename, codebook_json):
-    # Load quantized error indices (shift removed)
-    q_path = os.path.join(script_dir, f"{basename}_quantized_error.png")
-    q_img = np.array(Image.open(q_path), dtype=np.int32)
 
-    # Remove visualization shift (+128)
-    quant_indices = q_img - 128
+    bin_path = os.path.join(script_dir, f"{basename}_quant.bin")
+    if not os.path.exists(bin_path):
+        raise FileNotFoundError(f"Binary quantized file not found: {bin_path}")
 
     # Load codebook
     with open(codebook_json, "r") as f:
         codebooks = json.load(f)
 
     channels = ['R', 'G', 'B']
-    h, w, _ = quant_indices.shape
+
+    # Read binary file
+    with open(bin_path, "rb") as f:
+        # read header (h,w)
+        header_h = f.read(4)
+        header_w = f.read(4)
+        if len(header_h) < 4 or len(header_w) < 4:
+            raise ValueError("Invalid .bin file: header too short.")
+        h = np.frombuffer(header_h, dtype=np.int32)[0]
+        w = np.frombuffer(header_w, dtype=np.int32)[0]
+
+        # read remaining bytes
+        flat = np.frombuffer(f.read(), dtype=np.uint8)
+
+    # Reshape to H x W x 3 and convert to int32 for reconstruction
+    quant_indices = flat.reshape((h, w, 3)).astype(np.int32)
 
     reconstructed = np.zeros((h, w, 3), dtype=np.int32)
+    q_image = np.zeros((h, w, 3), dtype=np.int32)  # will hold dequantized error midpoints
 
-    # Predictive decoding
     for i in range(h):
         for j in range(w):
             for c_idx, ch in enumerate(channels):
-
-                # Predictor uses reconstructed image (feedback loop)
                 pred = loco_predict(reconstructed, i, j, c_idx)
 
-                # Get quantized error index
                 q_index = int(quant_indices[i, j, c_idx])
-
-                # Clamp index to valid range
                 q_index = max(0, min(q_index, len(codebooks[ch]) - 1))
 
-                # Get midpoint (dequantized error)
+                # read dequantized error (midpoint) from codebook
                 dq_err = float(codebooks[ch][q_index]["midpoint"])
+                q_image[i, j, c_idx] = int(round(dq_err))
 
-                # Reconstruct pixel
                 recon_pixel = pred + dq_err
-
-                # Clip to valid range
                 recon_pixel = max(0, min(255, int(round(recon_pixel))))
 
                 reconstructed[i, j, c_idx] = recon_pixel
 
-    return reconstructed
+    return reconstructed, quant_indices, q_image
 
 
 
-# --- Main Menu ---
 if __name__ == "__main__":
     while True:
-        print("\n=== Predictive Coding Menu ===")
-        print("1. Compress Image")
-        print("2. Decompress Image")
+        print("\n### Welcome to Predictive Coder!!! ###")
+        print("What would you like to do? (˶ᵔ ᵕ ᵔ˶)")
+        print("1. Compress an Image")
+        print("2. Decompress an Image")
         print("3. Exit")
         choice = input("Enter choice [1-3]: ").strip()
 
         if choice == "1":
+            print("let's compress an image! ദ്ദി(˵ •̀ ᴗ - ˵ ) ✧")
             image_path = input("Enter image path: ").strip()
             try:
                 image_path = validate_image_path(image_path)
@@ -269,10 +303,10 @@ if __name__ == "__main__":
 
             save_quantized_bin(basename, quant_indices)
             save_images(basename, predicted, error, quant_indices, q_image, reconstructed)
-
-
+            print("Compression completed!")
 
         elif choice == "2":
+            print("let's decompress an image! ( ◡̀_◡́)ᕤ")
             basename = input("Enter image basename (without extension): ").strip()
 
             codebook_file = basename + "codebook_rgb.json"
@@ -282,17 +316,24 @@ if __name__ == "__main__":
                 print("Error: Codebook not found. Run compression first.")
                 continue
 
+            bin_file = os.path.join(script_dir, f"{basename}_quant.bin")
+            if not os.path.exists(bin_file):
+                print("Error: Quantized .bin file not found. Run compression first.")
+                continue
+
             print("Running decompression...")
-            reconstructed = decompress_rgb(basename, codebook_path)
+            try:
+                reconstructed, quant_indices, q_image = decompress_rgb(basename, codebook_path)
+            except Exception as e:
+                print(f"Decompression failed: {e}")
+                continue
 
-            out_path = os.path.join(script_dir, f"{basename}_decompressed.png")
-            Image.fromarray(reconstructed.astype(np.uint8)).save(out_path)
-
-            print(f"Decompressed image saved as: {basename}_decompressed.png")
-
+            # save decompression outputs (visualizations)
+            save_images_decompress(basename, quant_indices, q_image, reconstructed)
+            print("Decompression completed!")
 
         elif choice == "3":
-            print("Exiting program.")
+            print ("Exiting. Goodbye! (｡•́︿•̀｡)")
             break
         else:
-            print("Invalid choice.")
+            print("Invalid choice. Please try again.૮₍ ˃ ⤙ ˂ ₎ა")
