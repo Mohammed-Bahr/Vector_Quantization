@@ -61,13 +61,3 @@ python scripts/visualize_codes.py --checkpoint checkpoints/latest.pt --out resul
 - `tests/` - unit tests
 
 Adjust paths and module names if your project layout differs.
-
-## Contributing
-
-Contributions are welcome! Please open issues to discuss ideas or submit pull requests with clear descriptions and tests.
-
-## License
-
-Add a license file to the repository (e.g., `LICENSE`) and update here. If you don't have a preferred license yet, consider using the MIT License.
-
----
